@@ -51,9 +51,12 @@ ssh distritec@ssh-distritec.alwaysdata.net
 
 ```bash
 cd ~/www
-git clone https://github.com/TON_PSEUDO/distritec.git .
+git clone https://github.com/STEFANOVITCH-Ilann-24019037/SitePourPapa.git .
 npm install --omit=dev
 ```
+
+> **Note :** `better-sqlite3` est un module natif (C++). S'il échoue à compiler,
+> essaie `npm install --unsafe-perm` ou `npm rebuild better-sqlite3`.
 
 ---
 
@@ -107,15 +110,27 @@ Puis redémarre le site depuis le panneau admin :
 
 ---
 
-## 7. Données persistantes
+## 7. Données persistantes (SQLite)
 
-Les données sont stockées dans `~/www/data/db.json` sur le serveur. Ce fichier est créé automatiquement au premier enregistrement. Il n'est **pas** dans git (`.gitignore`), donc un `git pull` ne l'écrasera jamais.
+Les données sont stockées dans `~/www/data/distritec.db` (base SQLite).
+Ce fichier est créé automatiquement au premier démarrage. Il n'est **pas** dans git
+(`.gitignore`), donc un `git pull` ne l'écrasera jamais.
 
-Pour sauvegarder les données manuellement :
+**Migration automatique :** si un ancien `data/db.json` existe, il est importé
+dans SQLite au démarrage puis renommé en `db.json.migrated`.
+
+Pour sauvegarder la base :
 
 ```bash
 # Depuis ton ordinateur
-scp distritec@ssh-distritec.alwaysdata.net:~/www/data/db.json ./backup_db.json
+scp distritec@ssh-distritec.alwaysdata.net:~/www/data/distritec.db ./backup_distritec.db
+```
+
+Pour inspecter la base en SSH :
+
+```bash
+sqlite3 ~/www/data/distritec.db ".tables"
+sqlite3 ~/www/data/distritec.db "SELECT COUNT(*) FROM entries;"
 ```
 
 ---
@@ -124,12 +139,25 @@ scp distritec@ssh-distritec.alwaysdata.net:~/www/data/db.json ./backup_db.json
 
 ```
 www/
-├── index.html       ← Page principale
-├── style.css        ← Styles
-├── app.js           ← JavaScript frontend
-├── server.js        ← Backend Express (point d'entrée)
-├── package.json     ← Dépendances Node.js
+├── index.html            ← Page principale
+├── style.css             ← Styles
+├── app.js                ← JavaScript frontend
+├── server.js             ← Backend Express + SQLite (point d'entrée)
+├── package.json          ← Dépendances (express, better-sqlite3, express-session)
 └── data/
-    ├── db.json      ← Données (auto-créé, ignoré par git)
-    └── users.json   ← Utilisateurs modifiés (auto-créé, ignoré par git)
+    └── distritec.db      ← Base SQLite (auto-créée, ignorée par git)
+```
+
+### Variable d'environnement optionnelle
+
+| Variable          | Rôle                              | Valeur par défaut               |
+|-------------------|-----------------------------------|---------------------------------|
+| `SESSION_SECRET`  | Secret de chiffrement des cookies | `distritec-sess-secret-2026`    |
+| `PORT`            | Port d'écoute                     | 3000 (ou `LISTEN_PORT`)         |
+
+Il est recommandé de définir `SESSION_SECRET` avec une valeur aléatoire en production :
+
+```bash
+# Sur le serveur Alwaysdata, dans les variables d'environnement du site
+SESSION_SECRET=une-longue-chaine-aleatoire-ici
 ```

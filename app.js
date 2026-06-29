@@ -45,9 +45,10 @@ async function doLogin(){
     applyProfile();
     await fetchUsers();
     await initApp();
-  }catch(e){document.getElementById('login-err').style.display='block';}
+  }catch(e){console.error('Erreur login:',e);document.getElementById('login-err').style.display='block';}
 }
 function doLogout(){
+  fetch('/api/logout',{method:'POST'}).catch(()=>{});
   CURRENT=null;
   document.getElementById('login-overlay').style.display='flex';
   document.getElementById('login-user').value='';
@@ -142,7 +143,7 @@ const SITE_COLORS=['#CC2B1B','#2563EB','#1A7A4A','#D97706','#7C3AED','#0891B2','
 let mcYear=new Date().getFullYear(),mcMonth=new Date().getMonth();
 
 async function load(){
-  try{const r=await fetch('/api/data');if(r.ok){const d=await r.json();if(d)db=Object.assign({entries:[],memo:{},sites:[],agences:[],acts:[],resp:'',weekValidations:{}},d);}}catch(e){}
+  try{const r=await fetch('/api/data');if(r.status===401){doLogout();return;}if(r.ok){const d=await r.json();if(d)db=Object.assign({entries:[],memo:{},sites:[],agences:[],acts:[],resp:'',weekValidations:{}},d);}}catch(e){}
   if(!db.tauxMensuels)db.tauxMensuels={
     '2026-01':{tauxTR:10.00,panierRepas:16.36},
     '2026-02':{tauxTR:10.00,panierRepas:16.36},
@@ -162,7 +163,11 @@ async function load(){
   if(db.coeff==null)db.coeff=2;
 
 }
-function save(){try{fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});}catch(e){}}
+function save(){
+  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)})
+    .then(r=>{if(r.status===401)doLogout();})
+    .catch(()=>{});
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtH(h){if(!h||h<=0)return'—';const hh=Math.floor(h);const mm=Math.round((h-hh)*60);return hh+'h'+(mm?String(mm).padStart(2,'0'):'00');}
