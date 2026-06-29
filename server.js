@@ -338,7 +338,10 @@ class SQLiteSessionStore extends session.Store {
     try {
       const row = db.prepare('SELECT sess FROM sessions WHERE sid=? AND expires>?').get(sid, Date.now());
       cb(null, row ? JSON.parse(row.sess) : null);
-    } catch (e) { cb(e); }
+    } catch (e) {
+      console.error('Session get error:', e.message);
+      cb(null, null); // traiter comme session absente, pas une erreur fatale
+    }
   }
   set(sid, sess, cb) {
     try {
@@ -348,13 +351,16 @@ class SQLiteSessionStore extends session.Store {
       db.prepare('INSERT OR REPLACE INTO sessions (sid,sess,expires) VALUES (?,?,?)')
         .run(sid, JSON.stringify(sess), expires);
       if (cb) cb(null);
-    } catch (e) { if (cb) cb(e); }
+    } catch (e) {
+      console.error('Session set error:', e.message);
+      if (cb) cb(null); // ne pas faire crasher le serveur
+    }
   }
   destroy(sid, cb) {
     try {
       db.prepare('DELETE FROM sessions WHERE sid=?').run(sid);
       if (cb) cb(null);
-    } catch (e) { if (cb) cb(e); }
+    } catch (e) { if (cb) cb(null); }
   }
   touch(sid, sess, cb) { this.set(sid, sess, cb); }
 }
