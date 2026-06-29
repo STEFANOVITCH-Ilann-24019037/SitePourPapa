@@ -68,6 +68,16 @@ db.exec(`
     value TEXT
   )
 `);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid     TEXT    PRIMARY KEY,
+    sess    TEXT    NOT NULL,
+    expires INTEGER NOT NULL
+  )
+`);
+// Nettoyage des sessions expirées au démarrage et toutes les heures
+db.prepare('DELETE FROM sessions WHERE expires < ?').run(Date.now());
+setInterval(() => db.prepare('DELETE FROM sessions WHERE expires < ?').run(Date.now()), 3_600_000).unref();
 
 // ─── Helper transaction ───────────────────────────────────────────────────────
 function withTx(fn) {
@@ -322,6 +332,33 @@ function rowToUser(row, includePwd = false) {
   return u;
 }
 
+// ─── Store de sessions SQLite (survit aux redémarrages serveur) ───────────────
+class SQLiteSessionStore extends session.Store {
+  get(sid, cb) {
+    try {
+      const row = db.prepare('SELECT sess FROM sessions WHERE sid=? AND expires>?').get(sid, Date.now());
+      cb(null, row ? JSON.parse(row.sess) : null);
+    } catch (e) { cb(e); }
+  }
+  set(sid, sess, cb) {
+    try {
+      const expires = sess.cookie?.expires
+        ? new Date(sess.cookie.expires).getTime()
+        : Date.now() + 12 * 60 * 60 * 1000;
+      db.prepare('INSERT OR REPLACE INTO sessions (sid,sess,expires) VALUES (?,?,?)')
+        .run(sid, JSON.stringify(sess), expires);
+      if (cb) cb(null);
+    } catch (e) { if (cb) cb(e); }
+  }
+  destroy(sid, cb) {
+    try {
+      db.prepare('DELETE FROM sessions WHERE sid=?').run(sid);
+      if (cb) cb(null);
+    } catch (e) { if (cb) cb(e); }
+  }
+  touch(sid, sess, cb) { this.set(sid, sess, cb); }
+}
+
 // ─── Express ──────────────────────────────────────────────────────────────────
 const app = express();
 
@@ -329,6 +366,7 @@ app.use(express.json({ limit: '20mb' }));
 
 const SESSION_SECRET = process.env.SESSION_SECRET || 'distritec-sess-secret-2026';
 app.use(session({
+  store:             new SQLiteSessionStore(),
   secret:            SESSION_SECRET,
   resave:            false,
   saveUninitialized: false,
