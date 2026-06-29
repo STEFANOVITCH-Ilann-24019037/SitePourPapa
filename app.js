@@ -41,10 +41,10 @@ async function doLogin(){
     if(!r.ok){document.getElementById('login-err').style.display='block';document.getElementById('login-pass').value='';return;}
     const {user}=await r.json();
     CURRENT={...user};
-    document.getElementById('login-overlay').style.display='none';
     applyProfile();
     await fetchUsers();
     await initApp();
+    document.getElementById('login-overlay').style.display='none';
   }catch(e){console.error('Erreur login:',e);document.getElementById('login-err').style.display='block';}
 }
 function doLogout(){
@@ -1861,10 +1861,10 @@ window.addEventListener('beforeunload',()=>{
     if(r.ok){
       const{user}=await r.json();
       CURRENT={...user};
-      document.getElementById('login-overlay').style.display='none';
       applyProfile();
       await fetchUsers();
       await initApp();
+      document.getElementById('login-overlay').style.display='none';
       return;
     }
   }catch(e){}
