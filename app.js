@@ -163,8 +163,18 @@ async function load(){
   if(db.coeff==null)db.coeff=2;
 
 }
+let _saveTimer=null;
 function save(){
-  fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)})
+  if(_saveTimer)clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{
+    fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)})
+      .then(r=>{if(r.status===401)doLogout();})
+      .catch(()=>{});
+  },300);
+}
+function saveNow(){
+  if(_saveTimer){clearTimeout(_saveTimer);_saveTimer=null;}
+  return fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)})
     .then(r=>{if(r.status===401)doLogout();})
     .catch(()=>{});
 }
@@ -1837,3 +1847,27 @@ function saveFinancial(){
   if(!isNaN(coeff)&&coeff>0)db.coeff=coeff;
   save();renderParams();
 }
+
+// Sauvegarde immédiate avant fermeture/rechargement pour ne pas perdre de données
+window.addEventListener('beforeunload',()=>{
+  if(_saveTimer){clearTimeout(_saveTimer);_saveTimer=null;
+    navigator.sendBeacon('/api/data',new Blob([JSON.stringify(db)],{type:'application/json'}));}
+});
+
+// Restauration automatique de session au chargement de la page
+(async function restoreSession(){
+  try{
+    const r=await fetch('/api/me');
+    if(r.ok){
+      const{user}=await r.json();
+      CURRENT={...user};
+      document.getElementById('login-overlay').style.display='none';
+      applyProfile();
+      await fetchUsers();
+      await initApp();
+      return;
+    }
+  }catch(e){}
+  // Pas de session valide : le formulaire de connexion reste visible
+  document.getElementById('login-overlay').style.display='flex';
+})();

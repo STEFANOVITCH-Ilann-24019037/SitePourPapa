@@ -363,6 +363,7 @@ class SQLiteSessionStore extends session.Store {
 const app = express();
 
 app.use(express.json({ limit: '20mb' }));
+app.use(express.text({ limit: '20mb', type: 'application/json' }));
 
 const SESSION_SECRET = process.env.SESSION_SECRET || 'distritec-sess-secret-2026';
 app.use(session({
@@ -406,6 +407,13 @@ app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
+// ── GET /api/me ──────────────────────────────────────────────────────────────
+app.get('/api/me', requireAuth, (req, res) => {
+  const row = db.prepare('SELECT * FROM users WHERE id=?').get(req.session.uid);
+  if (!row) return res.status(401).json({ error: 'Utilisateur introuvable.' });
+  res.json({ user: rowToUser(row, false) });
+});
+
 // ── GET /api/data ────────────────────────────────────────────────────────────
 app.get('/api/data', requireAuth, (req, res) => {
   try { res.json(buildDbObject()); }
@@ -414,8 +422,12 @@ app.get('/api/data', requireAuth, (req, res) => {
 
 // ── POST /api/data ───────────────────────────────────────────────────────────
 app.post('/api/data', requireAuth, (req, res) => {
-  try { persistDb(req.body); res.json({ ok: true }); }
-  catch (e) { console.error('POST /api/data:', e); res.status(500).json({ error: 'Erreur sauvegarde.' }); }
+  try {
+    // sendBeacon envoie du text/plain, on parse manuellement si nécessaire
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    persistDb(body);
+    res.json({ ok: true });
+  } catch (e) { console.error('POST /api/data:', e); res.status(500).json({ error: 'Erreur sauvegarde.' }); }
 });
 
 // ── GET /api/users ───────────────────────────────────────────────────────────
