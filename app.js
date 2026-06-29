@@ -36,16 +36,19 @@ let CURRENT=null; // utilisateur connecté
 async function doLogin(){
   const uid=document.getElementById('login-user').value.trim().toLowerCase();
   const pwd=document.getElementById('login-pass').value;
+  // Étape 1 : authentification uniquement
+  let user;
   try{
     const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid,pwd})});
     if(!r.ok){document.getElementById('login-err').style.display='block';document.getElementById('login-pass').value='';return;}
-    const {user}=await r.json();
-    CURRENT={...user};
-    applyProfile();
-    await fetchUsers();
-    await initApp();
-    document.getElementById('login-overlay').style.display='none';
-  }catch(e){console.error('Erreur login:',e);document.getElementById('login-err').style.display='block';}
+    ({user}=await r.json());
+  }catch(e){console.error('Erreur login:',e);document.getElementById('login-err').style.display='block';return;}
+  // Étape 2 : initialisation (erreur séparée du login)
+  CURRENT={...user};
+  applyProfile();
+  try{await fetchUsers();}catch(e){console.error('fetchUsers:',e);}
+  try{await initApp();}catch(e){console.error('initApp:',e);}
+  document.getElementById('login-overlay').style.display='none';
 }
 function doLogout(){
   fetch('/api/logout',{method:'POST'}).catch(()=>{});
@@ -1862,8 +1865,8 @@ window.addEventListener('beforeunload',()=>{
       const{user}=await r.json();
       CURRENT={...user};
       applyProfile();
-      await fetchUsers();
-      await initApp();
+      try{await fetchUsers();}catch(e){console.error('fetchUsers:',e);}
+      try{await initApp();}catch(e){console.error('initApp:',e);}
       document.getElementById('login-overlay').style.display='none';
       return;
     }
