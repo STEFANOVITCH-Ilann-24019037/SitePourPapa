@@ -48,7 +48,7 @@ async function doLogin(){
   applyProfile();
   try{await fetchUsers();}catch(e){console.error('fetchUsers:',e);}
   try{await initApp();}catch(e){console.error('initApp:',e);}
-  document.getElementById('login-overlay').style.display='none';
+  if(CURRENT)document.getElementById('login-overlay').style.display='none';
 }
 function doLogout(){
   fetch('/api/logout',{method:'POST'}).catch(()=>{});
@@ -345,6 +345,8 @@ function submitAll(){
 }
 
 function render(){
+  try{_renderInner();}catch(e){console.error('render() crash:',e);const b=document.getElementById('cal-body');if(b)b.innerHTML=`<tr><td colspan="8" style="color:red;padding:1rem">Erreur rendu: ${e.message}</td></tr>`;}}
+function _renderInner(){
   const wn=getWkN(currentMon);document.getElementById('wk-lbl').textContent=`S${wn}  —  ${fmtD(currentMon)} › ${fmtD(addDays(currentMon,4))}`;
   if(document.getElementById('mini-cal').classList.contains('open'))renderMiniCal();
   const rD=document.getElementById('row-days'),rS=document.getElementById('row-sub');
@@ -1867,7 +1869,7 @@ window.addEventListener('beforeunload',()=>{
       applyProfile();
       try{await fetchUsers();}catch(e){console.error('fetchUsers:',e);}
       try{await initApp();}catch(e){console.error('initApp:',e);}
-      document.getElementById('login-overlay').style.display='none';
+      document.getElementById('login-overlay').style.display=CURRENT?'none':'flex';
       return;
     }
   }catch(e){}
